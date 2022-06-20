@@ -1,20 +1,23 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.animation as ani
 
 #Set variables
-popSizes = [10, 5]
-popOffsetsXY = [[0,0],[0,0]]
-initialInfections = [10,0]
+popSizes = [500, 500, 500]
+popOffsetsXY = [[3,0],[-3,0],[0,3]]
+scale = 10
+initialInfections = [1,0,0]
 
-def createPopulation(ns, offsets, infections):
+savePlot = False
+
+def createPopulation(ns, offsets, scale, infections):
     popDf = pd.DataFrame()
     
+    #create N populations with specified offsets
     for i in range(0,len(ns)):
         popIndex = list(range(0,ns[i]))
-        popI = pd.DataFrame(np.random.normal(loc=offsets[i][0], size=(ns[i], 1)).round(decimals = 0), index=popIndex, columns=['x']) #x coordinates
-        popI['y'] = np.random.normal(loc = offsets[i][1], size=(ns[i], 1)).round(decimals = 0) #y coordinates
+        popI = pd.DataFrame((np.random.normal(loc=offsets[i][0], size=(ns[i], 1))*scale).round(decimals = 0), index=popIndex, columns=['x']) #x coordinates
+        popI['y'] = (np.random.normal(loc = offsets[i][1], size=(ns[i], 1))*scale).round(decimals = 0) #y coordinates
         popI['ID'] = list(range(0,ns[i]))
         popI['pop'] = i+1
 
@@ -27,47 +30,104 @@ def createPopulation(ns, offsets, infections):
 
     return popDf
 
-def printInfected (df):
+def printInfected(df):
     print('Total Infected: ' + str(df['pop'][df['pop'] == -1].count()))
 
-#initialise population data frame
-#popdf = createPopulation(popSizes, popOffsetsXY, initialInfections)
+#TODO: add neighbouring coordinates to zombie locations
+def getInfected(df):
+    #getExisting zombie locations
+    zombieLocations = df.loc[df['pop'] == -1].drop(['pop', 'ID'], axis=1)
 
-#test data
-popdf = pd.DataFrame(
-   {
-      "x": [0,0,0,0],
-      "y": [1,0,1,0],
-      'pop': [1,-1,2,2],
-      'ID': [0,1,2,3]
-   }
-)
+    #Get adjacent coordinates
+    zombiesCopy = zombieLocations.copy()
+    for i in range(1,9):
+        adjacentCoords = zombiesCopy.copy()
+        #adjacent coords where x changes
+        if i == 1 or i == 2 or i == 3:
+            adjacentCoords.loc[0:,'x'] = adjacentCoords['x'] -1
+        elif i == 6 or i == 7 or i == 8:
+            adjacentCoords.loc[0:,'x'] = adjacentCoords['x'] +1
+        #adjacent coords where y changes
+        if i == 1 or i == 4 or i == 6:
+            adjacentCoords.loc[0:,'y'] = adjacentCoords['y'] +1
+        elif i == 3 or i == 5 or i == 8:
+            adjacentCoords.loc[0:,'y'] = adjacentCoords['y'] -1
+        zombieLocations = pd.concat([zombieLocations, adjacentCoords], ignore_index=True)
+    zombieLocations = zombieLocations.drop_duplicates(ignore_index = True)
 
-printInfected(popdf)
-
-#figure, ax = plt.subplots()
-#popPlot = ax.scatter(popdf['x'], popdf['y'], c=popdf['pop'], cmap='Dark2')
-#plt.show()
-
-#TODO: Move this to a function + add neighbouring coordinates to zombie locations
-zombieLocations = popdf.loc[popdf['pop'] == -1].drop(['pop', 'ID'], axis=1)
-infections = popdf.stack().isin(zombieLocations.stack().values).unstack().query('x==True & y==True').index.values
-popdf.iloc[infections, popdf.columns.get_loc('pop')] = -1
-
-#random walk
-#1 = up, 2 = down, 3 = left, 4 = right
-directions = [1, 2, 3, 4]
-for i in range(1):
+    #find people at the locations where they can be infected and update the population
+    infections = df.copy().drop(['pop', 'ID'], axis=1)
+    infections = infections.merge(zombieLocations.assign(infected = True),how='left').fillna(False).query('infected == True').index.values
+    df.iloc[infections, df.columns.get_loc('pop')] = -1
     
-    printInfected(popdf)
+    return df
 
-    #TODO: Move this to a function
+def randomStep(df):
+    #randomly pick direction to take a step in
+    #1 = up, 2 = down, 3 = left, 4 = right
+    directions = [1, 2, 3, 4]
     popdf['direction'] = np.random.choice(directions, size=len(popdf), replace=True)
 
-    popdf['y'] = popdf.apply(lambda row: row.y+0.001 if row.direction==1 else row.y, axis=1)
-    popdf['y'] = popdf.apply(lambda row: row.y-0.001 if row.direction==2 else row.y, axis=1)
-    popdf['x'] = popdf.apply(lambda row: row.x-0.001 if row.direction==3 else row.x, axis=1)
-    popdf['x'] = popdf.apply(lambda row: row.x+0.001 if row.direction==4 else row.x, axis=1)
+    #take step
+    df['y'] = df.apply(lambda row: row.y+1 if row.direction==1 else row.y, axis=1)
+    df['y'] = df.apply(lambda row: row.y-1 if row.direction==2 else row.y, axis=1)
+    df['x'] = df.apply(lambda row: row.x-1 if row.direction==3 else row.x, axis=1)
+    df['x'] = df.apply(lambda row: row.x+1 if row.direction==4 else row.x, axis=1)
 
+    return df.drop('direction', axis=1)
 
- 
+#initialise population data frame
+popdf = createPopulation(popSizes, popOffsetsXY, scale, initialInfections)
+progress = pd.DataFrame(columns=['step', 'infected'])
+
+#test data
+#popdf = pd.DataFrame(
+#   {
+#      "x": [0,4,0,0,4],
+#      "y": [1,3,1,0,4],
+#      'pop': [1,-1,2,2,-1],
+#      'ID': [0,1,2,3,4]
+#   }
+#)
+
+step = 0
+
+#initial plot
+plt.ion()
+figure, ax = plt.subplots(figsize=(10, 10))
+scatter = ax.scatter(popdf['x'], popdf['y'], c=popdf['pop'], cmap='jet' )
+plt.title('Step ' + str(step) + ' ' + str(popdf['pop'][popdf['pop'] == -1].count()) + ' Infected ')
+plt.show()
+
+#walk until everyone is zombified
+while True:
+
+    print('Step ' + str(step))
+    printInfected(popdf)
+
+    currentProgress= pd.DataFrame(data = {'step':[step], 'infected':[popdf['pop'][popdf['pop'] == -1].count()]})
+    progress = pd.concat([progress, currentProgress], ignore_index=True)
+    
+    #check for infected
+    popdf = getInfected(popdf)
+
+    #update plot
+    plt.pause(0.05)
+    ax.cla()
+    scatter = ax.scatter(popdf['x'], popdf['y'], c=popdf['pop'], cmap='jet')
+    plt.title('Step ' + str(step) + ' ' + str(popdf['pop'][popdf['pop'] == -1].count()) + ' Infected ')
+    plt.draw()
+
+    #take a step
+    popdf = randomStep(popdf)
+    step = step + 1
+
+    if savePlot:
+        plt.savefig('C:\\Users\\jzburkinshaw\\Documents\\Zombie Figs\\fig' + str(step) + '.png')
+        ax.cla()
+
+    #Python should have do while loops
+    if popdf['pop'][popdf['pop'] == -1].count() == len(popdf):
+        break
+    
+print(progress)
