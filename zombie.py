@@ -2,22 +2,25 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from datetime import datetime
+
 #Set variables
-popSizes = [500, 500, 500]
+popSizes = [500, 500]
 popOffsetsXY = [[3,0],[-3,0],[0,3]]
-scale = 10
+xscale = 10
+yscale = 10
 initialInfections = [1,0,0]
 
 savePlot = False
 
-def createPopulation(ns, offsets, scale, infections):
+def createPopulation(ns, offsets, xscale, yscale, infections):
     popDf = pd.DataFrame()
     
     #create N populations with specified offsets
     for i in range(0,len(ns)):
         popIndex = list(range(0,ns[i]))
-        popI = pd.DataFrame((np.random.normal(loc=offsets[i][0], size=(ns[i], 1))*scale).round(decimals = 0), index=popIndex, columns=['x']) #x coordinates
-        popI['y'] = (np.random.normal(loc = offsets[i][1], size=(ns[i], 1))*scale).round(decimals = 0) #y coordinates
+        popI = pd.DataFrame((np.random.normal(loc=offsets[i][0], size=(ns[i], 1))*xscale).round(decimals = 0), index=popIndex, columns=['x']) #x coordinates
+        popI['y'] = (np.random.normal(loc = offsets[i][1], size=(ns[i], 1))*yscale).round(decimals = 0) #y coordinates
         popI['ID'] = list(range(0,ns[i]))
         popI['pop'] = i+1
 
@@ -33,12 +36,14 @@ def createPopulation(ns, offsets, scale, infections):
 def printInfected(df):
     print('Total Infected: ' + str(df['pop'][df['pop'] == -1].count()))
 
-#TODO: add neighbouring coordinates to zombie locations
 def getInfected(df):
     #getExisting zombie locations
     zombieLocations = df.loc[df['pop'] == -1].drop(['pop', 'ID'], axis=1)
 
     #Get adjacent coordinates
+    #       |1|4|6|
+    #       |2|X|7|
+    #       |3|5|8|
     zombiesCopy = zombieLocations.copy()
     for i in range(1,9):
         adjacentCoords = zombiesCopy.copy()
@@ -77,7 +82,7 @@ def randomStep(df):
     return df.drop('direction', axis=1)
 
 #initialise population data frame
-popdf = createPopulation(popSizes, popOffsetsXY, scale, initialInfections)
+popdf = createPopulation(popSizes, popOffsetsXY, xscale, yscale, initialInfections)
 progress = pd.DataFrame(columns=['step', 'infected'])
 
 #test data
@@ -91,6 +96,7 @@ progress = pd.DataFrame(columns=['step', 'infected'])
 #)
 
 step = 0
+currentProgress= pd.DataFrame(data = {'step':[step], 'infected':[popdf['pop'][popdf['pop'] == -1].count()]})
 
 #initial plot
 plt.ion()
@@ -99,14 +105,13 @@ scatter = ax.scatter(popdf['x'], popdf['y'], c=popdf['pop'], cmap='jet' )
 plt.title('Step ' + str(step) + ' ' + str(popdf['pop'][popdf['pop'] == -1].count()) + ' Infected ')
 plt.show()
 
+startTime = datetime.now()
+
 #walk until everyone is zombified
 while True:
 
     print('Step ' + str(step))
     printInfected(popdf)
-
-    currentProgress= pd.DataFrame(data = {'step':[step], 'infected':[popdf['pop'][popdf['pop'] == -1].count()]})
-    progress = pd.concat([progress, currentProgress], ignore_index=True)
     
     #check for infected
     popdf = getInfected(popdf)
@@ -129,5 +134,9 @@ while True:
     #Python should have do while loops
     if popdf['pop'][popdf['pop'] == -1].count() == len(popdf):
         break
-    
-print(progress)
+
+endTime = datetime.now()
+duration = endTime - startTime
+
+print('Start Time: ' + str(startTime) + ' End Time: ' + str(endTime) + ' Duration: ' + str(duration))
+#print(progress)
