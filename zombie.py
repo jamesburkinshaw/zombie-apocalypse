@@ -5,22 +5,23 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 #Set variables
-popSizes = [500, 500]
+popSizes = [500,500,500]
 popOffsetsXY = [[3,0],[-3,0],[0,3]]
-xscale = 10
-yscale = 10
+xyscale = [10,10]
 initialInfections = [1,0,0]
 
 savePlot = False
 
-def createPopulation(ns, offsets, xscale, yscale, infections):
+def createPopulation(ns, offsets, xyscale, infections):
     popDf = pd.DataFrame()
     
     #create N populations with specified offsets
     for i in range(0,len(ns)):
         popIndex = list(range(0,ns[i]))
-        popI = pd.DataFrame((np.random.normal(loc=offsets[i][0], size=(ns[i], 1))*xscale).round(decimals = 0), index=popIndex, columns=['x']) #x coordinates
-        popI['y'] = (np.random.normal(loc = offsets[i][1], size=(ns[i], 1))*yscale).round(decimals = 0) #y coordinates
+        xoffset = offsets[i][0]
+        yoffset = offsets[i][1]
+        popI = pd.DataFrame((np.random.normal(loc=offsets[i][0], size=(ns[i], 1))*xyscale[0]).round(decimals = 0), index=popIndex, columns=['x']) #x coordinates
+        popI['y'] = (np.random.normal(loc = offsets[i][1], size=(ns[i], 1))*xyscale[1]).round(decimals = 0) #y coordinates
         popI['ID'] = list(range(0,ns[i]))
         popI['pop'] = i+1
 
@@ -82,7 +83,7 @@ def randomStep(df):
     return df.drop('direction', axis=1)
 
 #initialise population data frame
-popdf = createPopulation(popSizes, popOffsetsXY, xscale, yscale, initialInfections)
+popdf = createPopulation(popSizes, popOffsetsXY, xyscale, initialInfections)
 progress = pd.DataFrame(columns=['step', 'infected'])
 
 #test data
