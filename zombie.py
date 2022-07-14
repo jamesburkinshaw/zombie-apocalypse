@@ -5,12 +5,12 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 #Set variables
-popSizes = [500,500,500]
-popOffsetsXY = [[3,0],[-3,0],[0,3]]
-xyscale = [10,10]
-initialInfections = [1,0,0]
+popSizes = [500,500,500,500]
+popOffsetsXY = [[3,0],[-3,0],[0,3],[0,-3]]
+xyscale = [[10,10],[10,10],[10,10],[10,10]]
+initialInfections = [1,0,0,1]
 
-savePlot = False
+savePlot = True
 
 def createPopulation(ns, offsets, xyscale, infections):
     popDf = pd.DataFrame()
@@ -18,10 +18,8 @@ def createPopulation(ns, offsets, xyscale, infections):
     #create N populations with specified offsets
     for i in range(0,len(ns)):
         popIndex = list(range(0,ns[i]))
-        xoffset = offsets[i][0]
-        yoffset = offsets[i][1]
-        popI = pd.DataFrame((np.random.normal(loc=offsets[i][0], size=(ns[i], 1))*xyscale[0]).round(decimals = 0), index=popIndex, columns=['x']) #x coordinates
-        popI['y'] = (np.random.normal(loc = offsets[i][1], size=(ns[i], 1))*xyscale[1]).round(decimals = 0) #y coordinates
+        popI = pd.DataFrame((np.random.normal(loc=offsets[i][0], size=(ns[i], 1))*xyscale[i][0]).round(decimals = 0), index=popIndex, columns=['x']) #x coordinates
+        popI['y'] = (np.random.normal(loc = offsets[i][1], size=(ns[i], 1))*xyscale[i][1]).round(decimals = 0) #y coordinates
         popI['ID'] = list(range(0,ns[i]))
         popI['pop'] = i+1
 
@@ -64,6 +62,7 @@ def getInfected(df):
     #find people at the locations where they can be infected and update the population
     infections = df.copy().drop(['pop', 'ID'], axis=1)
     infections = infections.merge(zombieLocations.assign(infected = True),how='left').fillna(False).query('infected == True').index.values
+    print(infections)
     df.iloc[infections, df.columns.get_loc('pop')] = -1
     
     return df
@@ -104,7 +103,10 @@ plt.ion()
 figure, ax = plt.subplots(figsize=(10, 10))
 scatter = ax.scatter(popdf['x'], popdf['y'], c=popdf['pop'], cmap='jet' )
 plt.title('Step ' + str(step) + ' ' + str(popdf['pop'][popdf['pop'] == -1].count()) + ' Infected ')
-plt.show()
+#plt.show()
+
+if savePlot:
+    plt.savefig('//Users//jamesburkinshaw//Desktop//Masters//Machine Learning - May 2022//Assignments//Zombies//frames//frame' + str(step) + '.png')
 
 startTime = datetime.now()
 
@@ -122,15 +124,14 @@ while True:
     ax.cla()
     scatter = ax.scatter(popdf['x'], popdf['y'], c=popdf['pop'], cmap='jet')
     plt.title('Step ' + str(step) + ' ' + str(popdf['pop'][popdf['pop'] == -1].count()) + ' Infected ')
-    plt.draw()
+    #plt.draw()
 
     #take a step
     popdf = randomStep(popdf)
     step = step + 1
-
+    
     if savePlot:
-        plt.savefig('C:\\Users\\jzburkinshaw\\Documents\\Zombie Figs\\fig' + str(step) + '.png')
-        ax.cla()
+        plt.savefig('//Users//jamesburkinshaw//Desktop//Masters//Machine Learning - May 2022//Assignments//Zombies//frames//frame' + str(step) + '.png')
 
     #Python should have do while loops
     if popdf['pop'][popdf['pop'] == -1].count() == len(popdf):
@@ -140,4 +141,3 @@ endTime = datetime.now()
 duration = endTime - startTime
 
 print('Start Time: ' + str(startTime) + ' End Time: ' + str(endTime) + ' Duration: ' + str(duration))
-#print(progress)
